@@ -14,7 +14,14 @@
 
 #
 # --item can be used unlimited times
-# Future plan for this tool is to add AWS S3 integration for auto-upload
+#
+# --input looks inside a base folder which you setup for a installapplications 
+#     webserver, dives in the installapplications folder you've prepared for upload to 
+#     the server, and snaps up the packages you have put in folders for each of the stages
+#     and uses these as items.
+# Future plan is to add the options for each of the items to a template plist in 
+#     the --input base folder
+# Next future plan for this tool is to add AWS S3 integration for auto-upload
 
 import hashlib
 import json
@@ -97,35 +104,73 @@ def getpkginfo(filename):
             return pkgId, pkgVersion
 
 
+
+
+def getitems(folder, stages):
+    '''Takes input of a folder path and returns an array of key and value pairs
+    for the packages and scripts items found in the subfolders for each stage.
+    Set defaults for the other itemOptions.'''
+    print 'Scanning input folder %s' % str(folder) 
+    if not os.path.isdir(folder):
+        return []
+    else:
+        itemsToProcess = []
+#         for filename in os.listdir(directory):
+#             if filename.endswith(".asm") or filename.endswith(".py"): 
+#                 # print(os.path.join(directory, filename))
+#                 continue
+#             else:
+#                 continue    
+        for stageFolder in stages:
+            theFolder = '%s/%s' % (folder, stageFolder)
+            for path, subfolders, files in os.walk(theFolder):
+                for name in files:
+                    processedItem = {}
+                    processedItem['item-path'] = os.path.join(path, name)
+                    print processedItem['item-path']
+                    processedItem['item-name'] = ''
+                    processedItem['item-stage'] = stageFolder
+                    print processedItem['item-stage']
+                    processedItem['item-type'] = ''
+                    processedItem['item-url'] = ''
+                    processedItem['script-do-not-wait'] = 'False'
+                    itemsToProcess.append(processedItem)
+    return itemsToProcess
+        
+
 def main():
+    # current dir to be used as default for --input and --output 
+    cwd = os.getcwd()
+    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base-url', default=None, action='store',
-                        help='Required: Base URL to where root dir is hosted')
-    parser.add_argument('--output', default=None, action='store',
-                        help='Required: Output directory to save json')
-    parser.add_argument('--item', default=None, action='append', nargs=6,
+    parser.add_argument('--base-url', required=True, default=None, action='store',
+                        help='Base URL to where root dir is hosted')
+    parser.add_argument('--input', required=False, default=cwd, action='store',
+                        help='Input folder to fetch items from. \
+                        You can put your packages and scripts in this path,  \
+                        in subfolders named after the stages they are to be \
+                        installed or run in. \
+                        Defaults to current working folder.')
+    parser.add_argument('--output', required=False, default=cwd, action='store',
+                        help='Output folder to save json \
+                        Defaults to current working folder.')
+    parser.add_argument('--item', required=False, default=None, action='append', nargs=6,
                         metavar=(
                             'item-name', 'item-path', 'item-stage',
                             'item-type', 'item-url', 'script-do-not-wait'),
-                        help='Required: Options for item. All items are \
-                        required. Scripts default to rootscript and stage \
-                        defaults to userland')
+                        help='Item argument and its options. Used to spefify item directly \
+                        in the script invocation instead of using the the --input \
+                        argument. When using --item, all options are required. Add each \
+                        option in format --<option> <value> Setting\
+                        --scipt-do-not-wait defaults to rootscript and \
+                        --item-stage defaults to userland')  
     args = parser.parse_args()
 
-    # Bail if we don't have one item, the base url and the output dir
-    if not args.item or not args.base_url or not args.output:
+    
+    # Bail if we don't have the base url
+    if not args.base_url:
         parser.print_help()
         exit(1)
-
-    # Let's first loop through the items and convert everything to key value
-    # pairs
-    itemsToProcess = []
-    for item in args.item:
-        processedItem = {}
-        for itemOption in item:
-            values = itemOption.split('=')
-            processedItem[values[0]] = values[1]
-        itemsToProcess.append(processedItem)
 
     # Create our stages now so InstallApplications won't blow up
     stages = {
@@ -133,6 +178,23 @@ def main():
         'setupassistant': [],
         'userland': []
     }
+
+    if not args.item:
+        # When no items were passed, assume we're using an input folder
+        itemsToProcess = getitems(args.input, stages)
+        if not itemsToProcess:
+            print 'No items found to process in %s' % args.input
+            exit(1)
+    else:
+        # Let's first loop through the items and convert everything to key value
+        # pairs
+        itemsToProcess = []
+        for item in args.item:
+            processedItem = {}
+            for itemOption in item:
+                values = itemOption.split('=')
+                processedItem[values[0]] = values[1]
+            itemsToProcess.append(processedItem)
 
     # Process each item in the order they were passed in
     for item in itemsToProcess:

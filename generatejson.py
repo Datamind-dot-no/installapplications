@@ -114,13 +114,7 @@ def getitems(folder, stages):
     if not os.path.isdir(folder):
         return []
     else:
-        itemsToProcess = []
-#         for filename in os.listdir(directory):
-#             if filename.endswith(".asm") or filename.endswith(".py"): 
-#                 # print(os.path.join(directory, filename))
-#                 continue
-#             else:
-#                 continue    
+        itemsToProcess = [] 
         for stageFolder in stages:
             theFolder = '%s/%s' % (folder, stageFolder)
             for path, subfolders, files in os.walk(theFolder):
@@ -181,7 +175,8 @@ def main():
 
     if not args.item:
         # When no items were passed, assume we're using an input folder
-        itemsToProcess = getitems(args.input, stages)
+        iaFolder = '%s/installapplications' % args.input
+        itemsToProcess = getitems(iaFolder, stages)
         if not itemsToProcess:
             print 'No items found to process in %s' % args.input
             exit(1)

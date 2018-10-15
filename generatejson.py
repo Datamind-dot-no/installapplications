@@ -133,21 +133,24 @@ def getitems(folder, stages):
         
 
 def main():
-    # current dir to be used as default for --input and --output 
+    # current working dir /installapplications to be used as default for --input and --output 
     cwd = os.getcwd()
+    iaFolderDefault = '%s/installapplications' % cwd
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--base-url', required=True, default=None, action='store',
                         help='Base URL to where root dir is hosted')
-    parser.add_argument('--input', required=False, default=cwd, action='store',
+    parser.add_argument('--input', required=False, default=iaFolderDefault, action='store',
                         help='Input folder to fetch items from. \
                         You can put your packages and scripts in this path,  \
                         in subfolders named after the stages they are to be \
                         installed or run in. \
-                        Defaults to current working folder.')
-    parser.add_argument('--output', required=False, default=cwd, action='store',
+                        Defaults to "installapplications" folder inside the current \
+                        working directory.')
+    parser.add_argument('--output', required=False, default=iaFolderDefault, action='store',
                         help='Output folder to save json \
-                        Defaults to current working folder.')
+                        Defaults to "installapplications" folder inside current working \
+                        directory.')
     parser.add_argument('--item', required=False, default=None, action='append', nargs=6,
                         metavar=(
                             'item-name', 'item-path', 'item-stage',
@@ -175,8 +178,9 @@ def main():
 
     if not args.item:
         # When no items were passed, assume we're using an input folder
-        iaFolder = '%s/installapplications' % args.input
-        itemsToProcess = getitems(iaFolder, stages)
+        # need the absolute path, user may have used relative in --input
+        inputFolder = os.path.realpath(args.input)
+        itemsToProcess = getitems(inputFolder, stages)
         if not itemsToProcess:
             print 'No items found to process in %s' % args.input
             exit(1)
@@ -280,7 +284,7 @@ def main():
     if args.output:
         savePath = os.path.join(args.output, 'bootstrap.json')
     else:
-        savePath = os.path.join(rootdir, 'bootstrap.json')
+        savePath = os.path.join(cwd, 'bootstrap.json')
 
     # Sort the primary keys, but not the sub keys, so things are in the correct
     # order
